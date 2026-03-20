@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 你画我猜 - 功能类图（可渲染/可诊断）</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; padding: 20px; background: #f4f4f9; }
+    .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 28px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    h1 { text-align: center; margin: 0 0 18px; color: #222; }
+    h2 { margin: 28px 0 10px; padding-bottom: 8px; border-bottom: 2px solid #eee; color: #333; }
+    p { margin: 8px 0 12px; color: #444; line-height: 1.7; text-align: justify; }
+    .diagram { margin: 14px 0 18px; }
+    .caption { text-align: center; color: #666; font-size: 13px; margin: 8px 0 0; }
+    .tips { margin: 10px 0 18px; padding: 12px 14px; border: 1px solid #eee; border-radius: 8px; background: #fafafa; color: #555; }
+    .err { border: 1px solid #f2c0c0; background: #fff6f6; color: #8a1f1f; padding: 10px 12px; border-radius: 8px; }
+    .code { margin-top: 8px; white-space: pre-wrap; word-break: break-word; background: #fff; border: 1px dashed #e5b3b3; padding: 10px 12px; border-radius: 8px; color: #333; }
+    code { background: #f2f2f2; padding: 2px 5px; border-radius: 4px; }
+  </style>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "loose",
+      theme: "default",
+    });
+
+    async function renderAll() {
+      const blocks = Array.from(document.querySelectorAll("script.mmd[type='text/plain']"));
+      for (const block of blocks) {
+        const targetId = block.dataset.target;
+        const title = block.dataset.title || "";
+        const diagramText = block.textContent.trim();
+        const target = document.getElementById(targetId);
+        if (!target) continue;
+        try {
+          const { svg } = await mermaid.render(`${targetId}-svg`, diagramText);
+          target.innerHTML = svg;
+        } catch (e) {
+          const msg = (e && (e.str || e.message)) ? (e.str || e.message) : String(e);
+          target.innerHTML = `
+            <div class="err">
+              <div><strong>渲染失败：</strong>${title}</div>
+              <div style="margin-top:6px;">${msg}</div>
+              <div class="code">${escapeHtml(diagramText)}</div>
+            </div>
+          `;
+        }
+      }
+    }
+
+    function escapeHtml(s) {
+      return s
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderAll();
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>AI 你画我猜 - 功能类图（全覆盖）</h1>
+    <div class="tips">
+      <div>本文件逐张图“单独渲染 + 单独报错”，可以定位具体是哪张图的语法导致失败。</div>
+      <div>若页面顶部没有任何图形且 Console 看到网络错误，说明浏览器无法从 CDN 加载 Mermaid（可换网络或后续我给你离线版本）。</div>
+    </div>
+
+    <h2>3.3.1 用户认证与资料</h2>
+    <p>覆盖：注册/登录/登出、获取当前用户、资料初始化与修改、登录记录。</p>
+    <div class="diagram" id="d-auth"></div>
+    <div class="caption">图 3.3.1 用户认证与资料功能类图</div>
+    <script class="mmd" type="text/plain" data-target="d-auth" data-title="3.3.1 用户认证与资料">
+classDiagram
+  class AuthController
+  class AuthService
+  class ProfileService
+  class LoginRecordService
+  class ProfileRepository
+  class LoginRecordRepository
+
+  AuthController --> AuthService
+  AuthController --> ProfileService
+  AuthController --> LoginRecordService
+  ProfileService --> ProfileRepository
+  LoginRecordService --> LoginRecordRepository
+    </script>
+
+    <h2>3.3.2 房间互动管理</h2>
+    <p>覆盖：创建房间（生成房间码/人数上限）、加入房间（校验房间码/人数）、查看房间成员、在线状态、退出房间。</p>
+    <div class="diagram" id="d-room"></div>
+    <div class="caption">图 3.3.2 房间互动管理功能类图</div>
+    <script class="mmd" type="text/plain" data-target="d-room" data-title="3.3.2 房间互动管理">
+classDiagram
+  class RoomController
+  class RoomService
+  class RoomRepository
+  class RoomMemberRepository
+  class RealtimeGateway
+
+  RoomController --> RoomService
+  RoomService --> RoomRepository
+  RoomService --> RoomMemberRepository
+  RoomService --> RealtimeGateway
+    </script>
+
+    <h2>3.3.3 绘画创作与提交</h2>
+    <p>覆盖：Canvas 本地绘制（颜色/粗细/撤销/清空）、提交画作、上传到 Storage、记录图片 URL 到 drawings。</p>
+    <div class="diagram" id="d-drawing"></div>
+    <div class="caption">图 3.3.3 绘画创作与提交功能类图</div>
+    <script class="mmd" type="text/plain" data-target="d-drawing" data-title="3.3.3 绘画创作与提交">
+classDiagram
+  class CanvasComponent
+  class UploadController
+  class StorageService
+  class DrawingService
+  class DrawingRepository
+
+  CanvasComponent --> UploadController
+  UploadController --> StorageService
+  UploadController --> DrawingService
+  DrawingService --> DrawingRepository
+    </script>
+
+    <h2>3.3.4 AI 提示生成与同步</h2>
+    <p>覆盖：调用 Vision API 识别画作、生成生活化提示、写回 drawings，并通过实时能力同步到猜词界面。</p>
+    <div class="diagram" id="d-ai"></div>
+    <div class="caption">图 3.3.4 AI 提示生成与同步功能类图</div>
+    <script class="mmd" type="text/plain" data-target="d-ai" data-title="3.3.4 AI 提示生成与同步">
+classDiagram
+  class AIController
+  class AIService
+  class AIConfigService
+  class AIConfigRepository
+  class DrawingRepository
+  class RealtimeGateway
+  class OpenAIVisionClient
+
+  AIController --> AIService
+  AIService --> AIConfigService
+  AIService --> OpenAIVisionClient
+  AIService --> DrawingRepository
+  AIService --> RealtimeGateway
+  AIConfigService --> AIConfigRepository
+    </script>
+
+    <h2>3.3.5 猜词提交与验证</h2>
+    <p>覆盖：输入猜词、提交答案、对比正确答案、记录 guess_records、同步回合状态与得分。</p>
+    <div class="diagram" id="d-guess"></div>
+    <div class="caption">图 3.3.5 猜词提交与验证功能类图</div>
+    <script class="mmd" type="text/plain" data-target="d-guess" data-title="3.3.5 猜词提交与验证">
+classDiagram
+  class GuessController
+  class GuessService
+  class GameRoundRepository
+  class GuessRecordRepository
+  class PointService
+  class RealtimeGateway
+
+  GuessController --> GuessService
+  GuessService --> GameRoundRepository
+  GuessService --> GuessRecordRepository
+  GuessService --> PointService
+  GuessService --> RealtimeGateway
+    </script>
+
+    <h2>3.3.6 积分与排行榜</h2>
+    <p>覆盖：个人积分与明细、积分规则、积分流水、全站排行（前 100/分页）与个人名次定位。</p>
+    <div class="diagram" id="d-points"></div>
+    <div class="caption">图 3.3.6 积分与排行榜功能类图</div>
+    <script class="mmd" type="text/plain" data-target="d-points" data-title="3.3.6 积分与排行榜">
+classDiagram
+  class PointController
+  class RankingController
+  class PointService
+  class PointRuleService
+  class RankingService
+  class PointRuleRepository
+  class PointRecordRepository
+  class RankingRepository
+
+  PointController --> PointService
+  PointService --> PointRuleService
+  PointService --> PointRecordRepository
+  PointRuleService --> PointRuleRepository
+  RankingController --> RankingService
+  RankingService --> RankingRepository
+    </script>
+
+    <h2>3.3.7 管理员后台</h2>
+    <p>覆盖：AI 参数配置、积分规则启停、超时房间清理、数据报表统计与导出。</p>
+    <div class="diagram" id="d-admin"></div>
+    <div class="caption">图 3.3.7 管理员后台功能类图</div>
+    <script class="mmd" type="text/plain" data-target="d-admin" data-title="3.3.7 管理员后台">
+classDiagram
+  class AdminController
+  class AdminAuthGuard
+  class AdminService
+  class RoomCleanupJob
+  class ReportService
+  class AIConfigRepository
+  class PointRuleRepository
+  class RoomRepository
+  class RoomMemberRepository
+  class LoginRecordRepository
+  class DrawingRepository
+
+  AdminController --> AdminAuthGuard
+  AdminController --> AdminService
+  AdminService --> AIConfigRepository
+  AdminService --> PointRuleRepository
+  AdminService --> RoomRepository
+  AdminService --> RoomMemberRepository
+  AdminService --> ReportService
+  RoomCleanupJob --> RoomRepository
+  RoomCleanupJob --> RoomMemberRepository
+  ReportService --> LoginRecordRepository
+  ReportService --> DrawingRepository
+    </script>
+  </div>
+</body>
+</html>
+

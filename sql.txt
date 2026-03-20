@@ -1,0 +1,135 @@
+-- 启用 UUID 扩展（Supabase 默认通常已开启，以防万一）
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. 用户档案表 (profiles)
+-- 关联 auth.users，存储用户基本信息和当前总积分
+CREATE TABLE public.profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    nickname TEXT NOT NULL,
+    avatar_url TEXT,
+    total_points INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. 房间表 (rooms)
+-- 管理房间状态、房主及配置
+CREATE TABLE public.rooms (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code VARCHAR(6) UNIQUE NOT NULL, -- 6位房间码
+    owner_id UUID REFERENCES public.profiles(id),
+    max_players INTEGER DEFAULT 10 CHECK (max_players >= 2),
+    status VARCHAR(20) DEFAULT 'waiting' CHECK (status IN ('waiting', 'playing', 'finished', 'timeout')),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW() -- 用于判断超时
+);
+
+-- 3. 房间成员关联表 (room_members) [多对多关系 1: User <-> Room]
+-- 记录用户在房间内的状态和角色
+CREATE TABLE public.room_members (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    room_id UUID REFERENCES public.rooms(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    role VARCHAR(20) DEFAULT 'player' CHECK (role IN ('owner', 'player')),
+    is_online BOOLEAN DEFAULT TRUE,
+    joined_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(room_id, user_id) -- 防止重复加入
+);
+
+-- 4. 游戏回合表 (game_rounds)
+-- 记录每一轮游戏的题目和状态
+CREATE TABLE public.game_rounds (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    room_id UUID REFERENCES public.rooms(id) ON DELETE CASCADE,
+    drawer_id UUID REFERENCES public.profiles(id), -- 当前绘画者
+    target_word VARCHAR(50) NOT NULL, -- 正确答案
+    status VARCHAR(20) DEFAULT 'drawing' CHECK (status IN ('drawing', 'guessing', 'finished')),
+    round_number INTEGER NOT NULL DEFAULT 1,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. 画作表 (drawings)
+-- 核心资产表，存储图片 URL 和 AI 识别结果
+CREATE TABLE public.drawings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    round_id UUID REFERENCES public.game_rounds(id) ON DELETE CASCADE,
+    image_url TEXT NOT NULL, -- Supabase Storage URL
+    ai_raw_response JSONB, -- 存储 OpenAI 原始返回数据
+    ai_hint_text TEXT, -- 转化后的生活化提示语
+    recognition_confidence FLOAT, -- AI 识别置信度
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. 猜词记录表 (guess_records) [多对多关系 2: User <-> Drawing]
+-- 记录用户对某幅画作的猜测历史
+CREATE TABLE public.guess_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    drawing_id UUID REFERENCES public.drawings(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    guess_content TEXT NOT NULL,
+    is_correct BOOLEAN DEFAULT FALSE,
+    points_earned INTEGER DEFAULT 0,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. 积分规则表 (point_rules)
+-- 管理员配置的规则（如：猜对+10，创建房间+5）
+CREATE TABLE public.point_rules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    rule_key VARCHAR(50) UNIQUE NOT NULL, -- 规则标识，如 'guess_correct', 'create_room'
+    rule_name VARCHAR(100) NOT NULL,
+    points_value INTEGER NOT NULL DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 8. 积分流水表 (point_records) [多对多关系 3: User <-> PointRule]
+-- 关联用户与规则，记录积分变动明细
+CREATE TABLE public.point_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    rule_id UUID REFERENCES public.point_rules(id),
+    points_change INTEGER NOT NULL, -- 当时的分值，防止规则后续修改影响历史
+    source_id UUID, -- 关联的业务ID (如 guess_id 或 room_id)，可为空
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. AI 配置表 (ai_configs)
+-- 管理员配置 AI 模型参数
+CREATE TABLE public.ai_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    config_name VARCHAR(50) NOT NULL, -- 如 'main_config'
+    openai_model VARCHAR(50) DEFAULT 'gpt-4-vision-preview',
+    confidence_threshold FLOAT DEFAULT 0.6, -- 识别阈值
+    prompt_template TEXT, -- 提示词模板
+    is_active BOOLEAN DEFAULT FALSE,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 10. 排行榜快照表 (rankings)
+-- 用于定期生成全站排行，避免高频统计查询
+CREATE TABLE public.rankings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    rank_position INTEGER NOT NULL,
+    snapshot_points INTEGER NOT NULL,
+    period_type VARCHAR(20) DEFAULT 'daily', -- daily, weekly, all_time
+    calculated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 11. 登录/活跃记录表 (login_records)
+-- 用于数据报表统计用户活跃度
+CREATE TABLE public.login_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    ip_address INET,
+    login_time TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 索引优化 (可选，但建议添加以提升查询性能)
+CREATE INDEX idx_rooms_code ON public.rooms(code);
+CREATE INDEX idx_room_members_room ON public.room_members(room_id);
+CREATE INDEX idx_drawings_round ON public.drawings(round_id);
+CREATE INDEX idx_point_records_user ON public.point_records(user_id);
+CREATE INDEX idx_rankings_period ON public.rankings(period_type, rank_position);

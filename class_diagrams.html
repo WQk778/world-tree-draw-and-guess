@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Draw & Guess - Class Diagrams</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+    <style>
+        body { font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; margin-bottom: 20px; }
+        h1 { text-align: center; }
+        h2 { border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 40px; }
+        .mermaid { display: flex; justify-content: center; margin: 20px 0; }
+        .desc { color: #666; line-height: 1.6; margin-bottom: 20px; text-align: justify; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI 你画我猜 - 全功能类图设计</h1>
+
+        <!-- 1. 房间管理功能 -->
+        <h2>3.3.1 房间管理功能设计</h2>
+        <div class="desc">
+            用户登录后可创建或加入房间。创建房间接口需生成唯一的房间码，并初始化房间状态。加入房间接口需验证房间码有效性及人数上限。查询房间成员接口用于实时显示房间内的玩家列表。所有接口均返回 Room 或 RoomMember 实体对象，经过 Service 层处理业务逻辑（如校验、状态更新）后，由 Controller 层统一返回给前端。相关功能的类图如图 3.3.1 所示。
+        </div>
+        <div class="mermaid">
+        classDiagram
+            class RoomController {
+                +createRoom(ownerId String, maxPlayers int) Room
+                +joinRoom(roomCode String, userId String) RoomMember
+                +getRoomMembers(roomId String) List~RoomMember~
+                +leaveRoom(roomId String, userId String) boolean
+            }
+
+            class RoomService {
+                <<interface>>
+                +createRoom(ownerId String, maxPlayers int) Room
+                +joinRoom(roomCode String, userId String) RoomMember
+                +getRoomMembers(roomId String) List~RoomMember~
+                +leaveRoom(roomId String, userId String) boolean
+            }
+
+            class RoomServiceImpl {
+                +createRoom(ownerId String, maxPlayers int) Room
+                +joinRoom(roomCode String, userId String) RoomMember
+                +getRoomMembers(roomId String) List~RoomMember~
+                +leaveRoom(roomId String, userId String) boolean
+            }
+
+            class RoomMapper {
+                <<interface>>
+                +insertRoom(room Room) int
+                +selectRoomByCode(code String) Room
+                +insertRoomMember(member RoomMember) int
+                +selectMembersByRoomId(roomId String) List~RoomMember~
+                +deleteMember(roomId String, userId String) int
+            }
+
+            class RoomEntity {
+                -id String
+                -code String
+                -ownerId String
+                -maxPlayers int
+                -status String
+                +getId() String
+                +getCode() String
+                +getOwnerId() String
+                +getStatus() String
+                +setStatus(status String) void
+            }
+
+            RoomController ..> RoomService
+            RoomService <|.. RoomServiceImpl
+            RoomServiceImpl ..> RoomMapper
+            RoomServiceImpl ..> RoomEntity
+            RoomMapper ..> RoomEntity
+        </div>
+        <p style="text-align: center; font-size: 0.9em; color: #666;">图 3.3.1 房间管理功能类图</p>
+
+        <!-- 2. 绘画与猜词功能 -->
+        <h2>3.3.2 绘画与猜词功能设计</h2>
+        <div class="desc">
+            游戏开始后，画手提交画作，系统调用 AI 接口生成提示。猜词玩家提交答案，系统验证正确性并计算积分。提交画作接口需上传图片至存储并记录 URL。提交猜词接口需比对当前回合的目标词汇，若正确则更新积分。相关功能的类图如图 3.3.2 所示。
+        </div>
+        <div class="mermaid">
+        classDiagram
+            class GameController {
+                +submitDrawing(roundId String, imageUrl String) Drawing
+                +submitGuess(drawingId String, userId String, guess String) GuessResult
+                +getCurrentRound(roomId String) GameRound
+            }
+
+            class GameService {
+                <<interface>>
+                +processDrawing(roundId String, imageUrl String) Drawing
+                +validateGuess(drawingId String, userId String, guess String) GuessResult
+                +startNewRound(roomId String) GameRound
+            }
+
+            class GameServiceImpl {
+                +processDrawing(roundId String, imageUrl String) Drawing
+                +validateGuess(drawingId String, userId String, guess String) GuessResult
+                +startNewRound(roomId String) GameRound
+            }
+
+            class AIService {
+                +analyzeImage(imageUrl String) AIResponse
+                +generateHint(aiRawData Json) String
+            }
+
+            class GameMapper {
+                <<interface>>
+                +insertDrawing(drawing Drawing) int
+                +insertGuessRecord(record GuessRecord) int
+                +updateRoundStatus(roundId String, status String) int
+                +selectTargetWord(roundId String) String
+            }
+
+            class DrawingEntity {
+                -id String
+                -roundId String
+                -imageUrl String
+                -aiHint String
+                +getImageUrl() String
+                +setAiHint(hint String) void
+            }
+
+            GameController ..> GameService
+            GameService <|.. GameServiceImpl
+            GameServiceImpl ..> GameMapper
+            GameServiceImpl ..> AIService
+            GameServiceImpl ..> DrawingEntity
+            GameMapper ..> DrawingEntity
+        </div>
+        <p style="text-align: center; font-size: 0.9em; color: #666;">图 3.3.2 绘画与猜词功能类图</p>
+
+        <!-- 3. 积分排行功能 -->
+        <h2>3.3.3 积分排行功能设计</h2>
+        <div class="desc">
+            系统记录用户的积分变化，并提供排行榜查询。查看个人积分接口返回当前用户的总分及历史明细。查看全站排行接口按总分降序返回前 100 名用户，支持分页查询。相关功能的类图如图 3.3.3 所示。
+        </div>
+        <div class="mermaid">
+        classDiagram
+            class RankController {
+                +getUserPoints(userId String) UserPointProfile
+                +getGlobalRankings(page int, size int) List~RankItem~
+            }
+
+            class RankService {
+                <<interface>>
+                +calculateUserPoints(userId String) int
+                +getRankingsList(page int, size int) List~RankItem~
+            }
+
+            class RankServiceImpl {
+                +calculateUserPoints(userId String) int
+                +getRankingsList(page int, size int) List~RankItem~
+            }
+
+            class RankMapper {
+                <<interface>>
+                +selectUserTotalPoints(userId String) int
+                +selectGlobalRankings(limit int, offset int) List~RankItem~
+            }
+
+            class RankItemEntity {
+                -userId String
+                -nickname String
+                -totalPoints int
+                -rank int
+                +getNickname() String
+                +getTotalPoints() int
+            }
+
+            RankController ..> RankService
+            RankService <|.. RankServiceImpl
+            RankServiceImpl ..> RankMapper
+            RankServiceImpl ..> RankItemEntity
+            RankMapper ..> RankItemEntity
+        </div>
+        <p style="text-align: center; font-size: 0.9em; color: #666;">图 3.3.3 积分排行功能类图</p>
+
+        <!-- 4. 管理员功能 (AI与系统配置) -->
+        <h2>3.3.4 管理员功能设计</h2>
+        <div class="desc">
+            管理员可对系统参数进行配置，包括 AI 模型参数调整、积分规则设定以及房间超时清理等。修改 AI 配置接口允许管理员切换 OpenAI 模型版本及识别阈值。积分规则管理接口支持新增或停用特定的加分规则。相关功能的类图如图 3.3.4 所示。
+        </div>
+        <div class="mermaid">
+        classDiagram
+            class AdminController {
+                +updateAIConfig(configId String, params ConfigParams) boolean
+                +addPointRule(ruleName String, points int) PointRule
+                +togglePointRule(ruleId String, isActive boolean) boolean
+                +cleanupTimeoutRooms() int
+            }
+
+            class AdminService {
+                <<interface>>
+                +updateAIConfig(configId String, params ConfigParams) boolean
+                +addPointRule(ruleName String, points int) PointRule
+                +cleanupTimeoutRooms() int
+            }
+
+            class AdminServiceImpl {
+                +updateAIConfig(configId String, params ConfigParams) boolean
+                +addPointRule(ruleName String, points int) PointRule
+                +cleanupTimeoutRooms() int
+            }
+
+            class AdminMapper {
+                <<interface>>
+                +updateAIConfig(config AIConfig) int
+                +insertPointRule(rule PointRule) int
+                +deleteTimeoutRooms(thresholdTime Timestamp) int
+            }
+
+            class AIConfigEntity {
+                -id String
+                -modelName String
+                -threshold float
+                -isActive boolean
+                +getModelName() String
+                +setModelName(name String) void
+            }
+
+            AdminController ..> AdminService
+            AdminService <|.. AdminServiceImpl
+            AdminServiceImpl ..> AdminMapper
+            AdminServiceImpl ..> AIConfigEntity
+            AdminMapper ..> AIConfigEntity
+        </div>
+        <p style="text-align: center; font-size: 0.9em; color: #666;">图 3.3.4 管理员功能类图</p>
+
+    </div>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统架构图 - AI 你画我猜</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+    <style>
+        body { font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        .mermaid { display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI 你画我猜 - 系统架构图</h1>
+        
+        <div class="mermaid">
+        flowchart TB
+            %% 客户端层
+            subgraph Client_Layer ["客户端层 (Vue 3 + Vite)"]
+                Auth_UI["登录/认证页"]
+                Lobby_UI["游戏大厅"]
+                Room_UI["游戏房间 (核心)"]
+                Canvas_Comp["Canvas 画板组件"]
+                Admin_UI["管理员后台"]
+            end
+
+            %% 服务端层
+            subgraph Server_Layer ["服务端层 (Node.js / Express)"]
+                API_Gateway["API 网关"]
+                Game_Logic["游戏逻辑控制器"]
+                AI_Service["AI 集成服务"]
+                Task_Scheduler["定时任务/清理"]
+            end
+
+            %% 基础设施层
+            subgraph Infra_Layer ["Supabase 基础设施"]
+                Auth_Service[("用户认证 Auth")]
+                DB[("PostgreSQL 数据库")]
+                Realtime_Service(("实时引擎 Realtime"))
+                Storage_Service["对象存储 Storage"]
+            end
+
+            %% 外部服务
+            subgraph External_Services ["外部服务"]
+                OpenAI["OpenAI 视觉模型 API"]
+            end
+
+            %% 交互连线
+            %% Client -> Server
+            Room_UI -- REST API --> API_Gateway
+            Admin_UI -- 配置规则 --> API_Gateway
+            Canvas_Comp -- 上传图片 --> Storage_Service
+
+            %% Client -> Supabase Direct
+            Room_UI -- 订阅状态变更 --> Realtime_Service
+            Auth_UI -- 登录/注册 --> Auth_Service
+            Lobby_UI -- 查询房间列表 --> API_Gateway
+
+            %% Server Internal
+            API_Gateway --> Game_Logic
+            API_Gateway --> AI_Service
+
+            %% Server -> Infra
+            Game_Logic -- 增删改查 --> DB
+            Task_Scheduler -- 清理超时数据 --> DB
+
+            %% Server -> External
+            AI_Service -- 发送图片识别 --> OpenAI
+            OpenAI -- 返回文本提示 --> AI_Service
+
+            %% Infra Internal
+            DB -.-> Realtime_Service
+            Storage_Service -.-> DB
+
+            %% Styling
+            classDef client fill:#e1f5fe,stroke:#01579b,stroke-width:2px;
+            classDef server fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+            classDef infra fill:#fff3e0,stroke:#ef6c00,stroke-width:2px;
+            classDef external fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px;
+
+            class Auth_UI,Lobby_UI,Room_UI,Canvas_Comp,Admin_UI client;
+            class API_Gateway,Game_Logic,AI_Service,Task_Scheduler server;
+            class Auth_Service,DB,Realtime_Service,Storage_Service infra;
+            class OpenAI external;
+        </div>
+    </div>
+</body>
+</html>

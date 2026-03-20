@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Draw & Guess - ER Diagram</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true });
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; margin-bottom: 30px; }
+        .mermaid { display: flex; justify-content: center; }
+        .legend { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; font-size: 0.9em; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Draw & Guess System - Entity Relationship Diagram</h1>
+        
+        <div class="mermaid">
+        erDiagram
+            %% User & Profile Core
+            PROFILES {
+                uuid id PK "FK -> auth.users"
+                text nickname
+                text avatar_url
+                int total_points
+                timestamp created_at
+            }
+
+            %% Room Management Module
+            ROOMS {
+                uuid id PK
+                string code "Unique Room Code"
+                uuid owner_id FK "Ref: PROFILES.id"
+                int max_players
+                string status "waiting/playing/..."
+            }
+
+            ROOM_MEMBERS {
+                uuid id PK
+                uuid room_id FK "Ref: ROOMS.id"
+                uuid user_id FK "Ref: PROFILES.id"
+                string role "owner/player"
+                boolean is_online
+            }
+
+            %% Game Core Module
+            GAME_ROUNDS {
+                uuid id PK
+                uuid room_id FK "Ref: ROOMS.id"
+                uuid drawer_id FK "Ref: PROFILES.id"
+                string target_word
+                string status
+                int round_number
+            }
+
+            DRAWINGS {
+                uuid id PK
+                uuid round_id FK "Ref: GAME_ROUNDS.id"
+                text image_url
+                jsonb ai_raw_response
+                text ai_hint_text
+                float recognition_confidence
+            }
+
+            GUESS_RECORDS {
+                uuid id PK
+                uuid drawing_id FK "Ref: DRAWINGS.id"
+                uuid user_id FK "Ref: PROFILES.id"
+                text guess_content
+                boolean is_correct
+                int points_earned
+            }
+
+            %% Points & Rules Module
+            POINT_RULES {
+                uuid id PK
+                string rule_key
+                string rule_name
+                int points_value
+                boolean is_active
+            }
+
+            POINT_RECORDS {
+                uuid id PK
+                uuid user_id FK "Ref: PROFILES.id"
+                uuid rule_id FK "Ref: POINT_RULES.id"
+                int points_change
+                uuid source_id "Optional Context ID"
+            }
+
+            %% System & Analytics Module
+            AI_CONFIGS {
+                uuid id PK
+                string config_name
+                string openai_model
+                float confidence_threshold
+                boolean is_active
+            }
+
+            RANKINGS {
+                uuid id PK
+                uuid user_id FK "Ref: PROFILES.id"
+                int rank_position
+                int snapshot_points
+                string period_type
+            }
+
+            LOGIN_RECORDS {
+                uuid id PK
+                uuid user_id FK "Ref: PROFILES.id"
+                inet ip_address
+                timestamp login_time
+            }
+
+            %% Relationships
+            
+            %% User - Room Relations (M2M via ROOM_MEMBERS)
+            PROFILES ||--o{ ROOMS : "owns"
+            PROFILES ||--o{ ROOM_MEMBERS : "joins"
+            ROOMS ||--o{ ROOM_MEMBERS : "contains"
+            
+            %% Game Flow
+            ROOMS ||--o{ GAME_ROUNDS : "hosts"
+            PROFILES ||--o{ GAME_ROUNDS : "draws_in"
+            GAME_ROUNDS ||--o{ DRAWINGS : "generates"
+            
+            %% Guessing Interaction (M2M User-Drawing via GUESS_RECORDS)
+            DRAWINGS ||--o{ GUESS_RECORDS : "is_guessed_in"
+            PROFILES ||--o{ GUESS_RECORDS : "submits_guess"
+            
+            %% Points System (M2M User-Rule via POINT_RECORDS)
+            PROFILES ||--o{ POINT_RECORDS : "has_history"
+            POINT_RULES ||--o{ POINT_RECORDS : "triggers"
+            
+            %% Analytics
+            PROFILES ||--o{ RANKINGS : "ranked_in"
+            PROFILES ||--o{ LOGIN_RECORDS : "logs_activity"
+        </div>
+
+        <div class="legend">
+            <strong>Diagram Key:</strong><br>
+            <strong>PK</strong>: Primary Key | <strong>FK</strong>: Foreign Key<br>
+            <strong>||--o{</strong>: One-to-Many Relationship
+        </div>
+    </div>
+</body>
+</html>

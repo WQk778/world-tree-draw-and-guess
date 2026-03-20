@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 你画我猜 - 全功能类图</title>
+  <style>
+    body { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; padding: 20px; background: #f4f4f9; }
+    .container { max-width: 1200px; margin: 0 auto; background: #fff; padding: 28px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    h1 { text-align: center; margin: 0 0 22px; color: #222; }
+    h2 { margin: 30px 0 10px; padding-bottom: 8px; border-bottom: 2px solid #eee; color: #333; }
+    p { margin: 10px 0 14px; color: #444; line-height: 1.7; text-align: justify; }
+    pre.mermaid { background: #fff; padding: 0; margin: 12px 0 8px; }
+    .caption { text-align: center; color: #666; font-size: 13px; margin: 8px 0 0; }
+    .tips { margin-top: 18px; padding: 12px 14px; border: 1px solid #eee; border-radius: 8px; background: #fafafa; color: #555; }
+    code { background: #f2f2f2; padding: 2px 5px; border-radius: 4px; }
+  </style>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: "loose",
+      theme: "default",
+    });
+
+    window.addEventListener("error", (e) => {
+      console.error("Page error:", e?.error || e);
+    });
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h1>AI 你画我猜 - 全功能类图设计（可渲染版）</h1>
+
+    <div class="tips">
+      <div>如果仍显示 “Syntax error in text”，通常是图语法解析失败或网络无法加载 Mermaid。</div>
+      <div>建议用浏览器打开后按 <code>F12</code> → Console 查看报错（是否有 404 / CORS / 网络拦截）。</div>
+    </div>
+
+    <h2>3.3.1 用户认证与资料</h2>
+    <p>
+      用户侧包含注册/登录/登出、资料查询与修改、登录日志记录等。认证依托 Supabase Auth，后端负责封装鉴权与资料初始化。
+    </p>
+    <pre class="mermaid">
+classDiagram
+  class AuthController{
+    +signUp()
+    +signIn()
+    +signOut()
+    +getMe()
+  }
+  class AuthService{
+    +signUp()
+    +signIn()
+    +signOut()
+    +verifyToken()
+  }
+  class ProfileService{
+    +getProfile()
+    +updateProfile()
+    +ensureProfile()
+  }
+  class LoginRecordService{
+    +recordLogin()
+  }
+  class ProfileRepository{
+    +findByUserId()
+    +upsert()
+  }
+  class LoginRecordRepository{
+    +insert()
+  }
+  class Profile{
+    +String id
+    +String nickname
+    +String avatarUrl
+    +int totalPoints
+  }
+  class LoginRecord{
+    +String id
+    +String userId
+    +String ipAddress
+    +String loginTime
+  }
+  AuthController --> AuthService : calls
+  AuthController --> ProfileService : calls
+  AuthController --> LoginRecordService : calls
+  ProfileService --> ProfileRepository : uses
+  LoginRecordService --> LoginRecordRepository : uses
+  ProfileRepository --> Profile : maps
+  LoginRecordRepository --> LoginRecord : maps
+    </pre>
+    <div class="caption">图 3.3.1 用户认证与资料功能类图</div>
+
+    <h2>3.3.2 房间管理与成员同步</h2>
+    <p>
+      房间模块负责创建房间码、加入/退出房间、查询成员列表、维护成员角色与在线状态；并为实时同步提供订阅数据基础。
+    </p>
+    <pre class="mermaid">
+classDiagram
+  class RoomController{
+    +createRoom()
+    +joinRoom()
+    +leaveRoom()
+    +getRoomMembers()
+  }
+  class RoomService{
+    +createRoom()
+    +joinRoom()
+    +leaveRoom()
+    +getRoomMembers()
+  }
+  class RoomServiceImpl{
+    +createRoom()
+    +joinRoom()
+    +leaveRoom()
+    +getRoomMembers()
+  }
+  class RoomRepository{
+    +insertRoom()
+    +findByCode()
+    +findById()
+    +updateStatus()
+  }
+  class RoomMemberRepository{
+    +addMember()
+    +removeMember()
+    +listMembers()
+    +setOnline()
+  }
+  class Room{
+    +String id
+    +String code
+    +String ownerId
+    +int maxPlayers
+    +String status
+  }
+  class RoomMember{
+    +String id
+    +String roomId
+    +String userId
+    +String role
+    +boolean isOnline
+  }
+  RoomController --> RoomService : calls
+  RoomService <|-- RoomServiceImpl : implements
+  RoomServiceImpl --> RoomRepository : uses
+  RoomServiceImpl --> RoomMemberRepository : uses
+  RoomRepository --> Room : maps
+  RoomMemberRepository --> RoomMember : maps
+    </pre>
+    <div class="caption">图 3.3.2 房间管理与成员同步功能类图</div>
+
+    <h2>3.3.3 绘画提交（Canvas）与图片存储</h2>
+    <p>
+      画板绘制发生在前端本地；提交时将画布导出为图片并上传到 Supabase Storage，然后把图片 URL 写入画作数据表。
+    </p>
+    <pre class="mermaid">
+classDiagram
+  class CanvasComponent{
+    +selectColor()
+    +setBrushSize()
+    +undo()
+    +clear()
+    +exportImage()
+  }
+  class UploadController{
+    +uploadDrawingImage()
+  }
+  class StorageService{
+    +upload()
+    +getPublicUrl()
+  }
+  class DrawingService{
+    +createDrawing()
+  }
+  class DrawingRepository{
+    +insert()
+    +findById()
+    +updateAIResult()
+  }
+  class Drawing{
+    +String id
+    +String roundId
+    +String imageUrl
+    +String aiHintText
+    +float recognitionConfidence
+  }
+  CanvasComponent --> UploadController : submits
+  UploadController --> StorageService : uses
+  UploadController --> DrawingService : calls
+  DrawingService --> DrawingRepository : uses
+  DrawingRepository --> Drawing : maps
+    </pre>
+    <div class="caption">图 3.3.3 绘画提交与图片存储功能类图</div>
+
+    <h2>3.3.4 AI 识别与提示生成</h2>
+    <p>
+      画作提交后，后端调用 OpenAI Vision API 得到识别结果，并根据提示词模板生成“生活化短语”提示，写回画作表并同步给猜词界面。
+    </p>
+    <pre class="mermaid">
+classDiagram
+  class AIController{
+    +recognizeDrawing()
+  }
+  class AIService{
+    +callVision()
+    +buildHint()
+  }
+  class AIConfigService{
+    +getActiveConfig()
+  }
+  class AIConfigRepository{
+    +findActive()
+    +update()
+  }
+  class DrawingRepository{
+    +updateAIResult()
+  }
+  class AIConfig{
+    +String id
+    +String model
+    +float confidenceThreshold
+    +String promptTemplate
+    +boolean isActive
+  }
+  AIController --> AIService : calls
+  AIService --> AIConfigService : uses
+  AIService --> DrawingRepository : writes
+  AIConfigService --> AIConfigRepository : uses
+  AIConfigRepository --> AIConfig : maps
+    </pre>
+    <div class="caption">图 3.3.4 AI 识别与提示生成功能类图</div>
+
+    <h2>3.3.5 猜词提交与正确性验证</h2>
+    <p>
+      猜词模块负责校验输入格式、对比正确答案、写入猜词记录，并触发积分计算（猜对得分、连胜等可由规则扩展）。
+    </p>
+    <pre class="mermaid">
+classDiagram
+  class GuessController{
+    +submitGuess()
+  }
+  class GuessService{
+    +validateGuess()
+    +recordGuess()
+  }
+  class GameRoundRepository{
+    +getTargetWord()
+    +updateStatus()
+  }
+  class GuessRecordRepository{
+    +insert()
+    +listByDrawing()
+  }
+  class PointService{
+    +grantPoints()
+  }
+  class GuessRecord{
+    +String id
+    +String drawingId
+    +String userId
+    +String guessContent
+    +boolean isCorrect
+    +int pointsEarned
+  }
+  GuessController --> GuessService : calls
+  GuessService --> GameRoundRepository : reads
+  GuessService --> GuessRecordRepository : writes
+  GuessService --> PointService : triggers
+  GuessRecordRepository --> GuessRecord : maps
+    </pre>
+    <div class="caption">图 3.3.5 猜词提交与验证功能类图</div>
+
+    <h2>3.3.6 积分规则、积分流水与排行榜</h2>
+    <p>
+      积分系统由规则表与流水表支撑，排行榜可通过快照表或实时聚合计算生成。个人中心读取总分与明细，全站排行按积分降序展示。
+    </p>
+    <pre class="mermaid">
+classDiagram
+  class PointController{
+    +getMyPoints()
+    +getPointHistory()
+  }
+  class RankingController{
+    +getRankings()
+    +getMyRank()
+  }
+  class PointService{
+    +grantPoints()
+    +listHistory()
+    +getTotal()
+  }
+  class PointRuleService{
+    +getActiveRules()
+  }
+  class RankingService{
+    +buildSnapshot()
+    +listRankings()
+  }
+  class PointRuleRepository{
+    +listActive()
+    +insert()
+    +updateActive()
+  }
+  class PointRecordRepository{
+    +insert()
+    +listByUser()
+  }
+  class RankingRepository{
+    +insertSnapshot()
+    +listByPeriod()
+  }
+  class PointRule{
+    +String id
+    +String ruleKey
+    +String ruleName
+    +int pointsValue
+    +boolean isActive
+  }
+  class PointRecord{
+    +String id
+    +String userId
+    +String ruleId
+    +int pointsChange
+    +String sourceId
+  }
+  class RankingItem{
+    +String userId
+    +int rankPosition
+    +int snapshotPoints
+    +String periodType
+  }
+  PointController --> PointService : calls
+  RankingController --> RankingService : calls
+  PointService --> PointRuleService : reads
+  PointService --> PointRecordRepository : writes
+  PointRuleService --> PointRuleRepository : uses
+  RankingService --> RankingRepository : uses
+  PointRuleRepository --> PointRule : maps
+  PointRecordRepository --> PointRecord : maps
+  RankingRepository --> RankingItem : maps
+    </pre>
+    <div class="caption">图 3.3.6 积分与排行榜功能类图</div>
+
+    <h2>3.3.7 管理员：AI 参数、积分规则、超时房间与报表</h2>
+    <p>
+      后台模块提供 AI 配置修改、积分规则维护、超时房间清理、核心数据统计与报表导出。清理任务也可由定时器自动触发。
+    </p>
+    <pre class="mermaid">
+classDiagram
+  class AdminController{
+    +updateAIConfig()
+    +createPointRule()
+    +togglePointRule()
+    +cleanupTimeoutRooms()
+    +exportReport()
+  }
+  class AdminService{
+    +updateAIConfig()
+    +createPointRule()
+    +togglePointRule()
+    +cleanupTimeoutRooms()
+    +exportReport()
+  }
+  class RoomCleanupJob{
+    +run()
+  }
+  class ReportService{
+    +buildActivityReport()
+    +buildAIReport()
+    +exportExcel()
+  }
+  class RoomRepository{
+    +markTimeout()
+    +listTimeoutCandidates()
+  }
+  class RoomMemberRepository{
+    +removeByRoom()
+  }
+  class AIConfigRepository{
+    +update()
+  }
+  class PointRuleRepository{
+    +insert()
+    +updateActive()
+  }
+  class LoginRecordRepository{
+    +countByPeriod()
+  }
+  class DrawingRepository{
+    +countRecognitionSuccess()
+  }
+  AdminController --> AdminService : calls
+  AdminService --> AIConfigRepository : uses
+  AdminService --> PointRuleRepository : uses
+  AdminService --> RoomRepository : uses
+  AdminService --> RoomMemberRepository : uses
+  AdminService --> ReportService : uses
+  RoomCleanupJob --> RoomRepository : uses
+  RoomCleanupJob --> RoomMemberRepository : uses
+  ReportService --> LoginRecordRepository : reads
+  ReportService --> DrawingRepository : reads
+    </pre>
+    <div class="caption">图 3.3.7 管理员与运维报表功能类图</div>
+
+    <div class="tips">
+      <div><strong>说明：</strong>以上类图采用“Controller / Service / Repository / Entity”分层表达，便于按功能实现接口与业务逻辑。</div>
+      <div>若你希望类图严格对应你已建的 11 张表（profiles/rooms/...）并补充 DTO、请求/响应对象，我可以在这个文件基础上继续细化。</div>
+    </div>
+  </div>
+</body>
+</html>
+
