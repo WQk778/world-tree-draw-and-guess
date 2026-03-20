@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sjk-frontend-client
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sjk-frontend-client
+  template:
+    metadata:
+      labels:
+        app: sjk-frontend-client
+    spec:
+      containers:
+      - name: frontend-client
+        image: your-registry/sjk-frontend-client:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sjk-frontend-client-svc
+spec:
+  selector:
+    app: sjk-frontend-client
+  ports:
+  - port: 80
+    targetPort: 80
+  type: LoadBalancer

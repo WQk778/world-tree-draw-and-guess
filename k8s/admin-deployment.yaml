@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sjk-admin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sjk-admin
+  template:
+    metadata:
+      labels:
+        app: sjk-admin
+    spec:
+      containers:
+      - name: admin
+        image: your-registry/sjk-admin:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sjk-admin-svc
+spec:
+  selector:
+    app: sjk-admin
+  ports:
+  - port: 80
+    targetPort: 80
+  type: LoadBalancer
