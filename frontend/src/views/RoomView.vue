@@ -3,6 +3,8 @@ import { ref, onMounted, onUnmounted, computed, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { supabase } from '../lib/supabase'
+import { friendService } from '../services/friendService'
+import { messageService } from '../services/messageService'
 
 const route = useRoute()
 const router = useRouter()
@@ -32,6 +34,11 @@ const isDrawing = ref(false)
 const ctx = ref(null)
 const currentColor = ref('#000000')
 const currentLineWidth = ref(4)
+
+// Invite State
+const showInviteModal = ref(false)
+const friendsList = ref([])
+const isInviting = ref(false)
 
 // Computed
 const isOwner = computed(() => room.value?.owner_id === userStore.user?.id)
@@ -246,6 +253,35 @@ const leaveRoom = async () => {
   router.push('/lobby')
 }
 
+// --- Invite Friends ---
+const openInviteModal = async () => {
+  showInviteModal.value = true
+  try {
+    friendsList.value = await friendService.getFriends()
+  } catch (error) {
+    console.error('Error fetching friends:', error)
+  }
+}
+
+const getFriendProfile = (friendRecord) => {
+  return friendRecord.requester_id === userStore.user.id 
+    ? friendRecord.addressee 
+    : friendRecord.requester
+}
+
+const inviteFriend = async (friendId) => {
+  if (isInviting.value || !room.value) return
+  isInviting.value = true
+  try {
+    await messageService.sendRoomInvite(friendId, room.value.code)
+    alert('邀请已发送')
+  } catch (error) {
+    alert('发送邀请失败')
+  } finally {
+    isInviting.value = false
+  }
+}
+
 // --- Drawing Logic ---
 
 const initCanvas = () => {
@@ -450,6 +486,9 @@ const submitDrawing = async () => {
     formData.append('roundId', currentRound.value.id)
 
     const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+        throw new Error('未登录或登录已过期，请重新登录');
+    }
     
     const response = await fetchWithTimeout(`${API_BASE_URL}/api/game/submit-drawing`, {
       method: 'POST',
@@ -645,9 +684,14 @@ watch(gamePhase, (newPhase) => {
             </span>
         </div>
 
-        <button @click="leaveRoom" class="px-4 py-2 bg-red-400 border-2 border-black rounded-lg text-sm font-bold text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] shadow-sm transition-all">
-          离开
-        </button>
+        <div class="flex items-center gap-4">
+          <button @click="openInviteModal" class="px-4 py-2 bg-green-400 border-2 border-black rounded-lg text-sm font-bold text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] shadow-sm transition-all">
+            邀请好友
+          </button>
+          <button @click="leaveRoom" class="px-4 py-2 bg-red-400 border-2 border-black rounded-lg text-sm font-bold text-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px] shadow-sm transition-all">
+            离开
+          </button>
+        </div>
       </header>
 
       <main class="flex-grow flex flex-col md:flex-row gap-6 overflow-hidden">
@@ -810,6 +854,27 @@ watch(gamePhase, (newPhase) => {
         </aside>
 
       </main>
+    </div>
+
+    <!-- Invite Friend Modal -->
+    <div v-if="showInviteModal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60">
+      <div class="bg-white p-6 rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] w-full max-w-sm">
+        <h3 class="text-xl font-black mb-4">邀请好友加入房间</h3>
+        
+        <div class="max-h-60 overflow-y-auto space-y-2 mb-6">
+          <div v-if="friendsList.length === 0" class="text-center text-gray-500 font-bold">没有可邀请的好友</div>
+          <div v-for="friend in friendsList" :key="friend.id" class="flex justify-between items-center p-2 border-2 border-black rounded-xl">
+            <span class="font-bold truncate">{{ getFriendProfile(friend).nickname }}</span>
+            <button @click="inviteFriend(getFriendProfile(friend).id)" :disabled="isInviting" class="px-3 py-1 bg-blue-400 border-2 border-black rounded-lg font-bold hover:bg-blue-300 disabled:opacity-50">
+              邀请
+            </button>
+          </div>
+        </div>
+
+        <button @click="showInviteModal = false" class="w-full py-2 bg-gray-200 border-2 border-black rounded-xl font-bold hover:bg-gray-300">
+          关闭
+        </button>
+      </div>
     </div>
   </div>
 </template>

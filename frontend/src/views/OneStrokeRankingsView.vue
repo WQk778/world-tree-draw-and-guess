@@ -20,11 +20,11 @@ onMounted(async () => {
 
 // Helper to determine rank tier
 const getTier = (score) => {
-    if (score >= 200) return { name: '画神', color: 'text-purple-600', bg: 'bg-purple-100' }
-    if (score >= 100) return { name: '大师', color: 'text-red-600', bg: 'bg-red-100' }
-    if (score >= 50) return { name: '钻石', color: 'text-blue-600', bg: 'bg-blue-100' }
-    if (score >= 20) return { name: '黄金', color: 'text-yellow-600', bg: 'bg-yellow-100' }
-    return { name: '青铜', color: 'text-gray-600', bg: 'bg-gray-100' }
+    if (score >= 1000) return { name: '大师', color: 'text-red-600', bg: 'bg-red-100', icon: '👑' }
+    if (score >= 600) return { name: '钻石', color: 'text-blue-600', bg: 'bg-blue-100', icon: '💎' }
+    if (score >= 300) return { name: '黄金', color: 'text-yellow-600', bg: 'bg-yellow-100', icon: '🥇' }
+    if (score >= 100) return { name: '白银', color: 'text-gray-500', bg: 'bg-gray-100', icon: '🥈' }
+    return { name: '青铜', color: 'text-orange-700', bg: 'bg-orange-100', icon: '🥉' }
 }
 </script>
 
@@ -70,7 +70,8 @@ const getTier = (score) => {
 
                 <div class="text-right flex flex-col items-end">
                     <span class="text-3xl font-black mb-1">{{ player.total_score }}<span class="text-sm ml-1">分</span></span>
-                    <span :class="['px-3 py-1 border-2 border-black rounded-full text-xs font-black', getTier(player.total_score).bg, getTier(player.total_score).color]">
+                    <span :class="['px-3 py-1 border-2 border-black rounded-full text-xs font-black flex items-center gap-1', getTier(player.total_score).bg, getTier(player.total_score).color]">
+                        <span>{{ getTier(player.total_score).icon }}</span>
                         {{ getTier(player.total_score).name }}
                     </span>
                 </div>

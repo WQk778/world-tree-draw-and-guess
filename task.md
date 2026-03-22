@@ -84,19 +84,19 @@
 
 ## 9. 扩展功能 - 一笔画大挑战 (One-Stroke Challenge)
 
-- [ ] **数据库与存储**
-  - [ ] 创建一笔画题目表 (存储图片URL、答案名称)
-  - [ ] 创建一笔画积分表/记录表 (存储玩家挑战记录)
-  - [ ] 上传题目图片至 Supabase Storage
-- [ ] **后端 API**
-  - [ ] 实现 `GET /api/onestroke/question` (获取随机题目)
-  - [ ] 实现 `POST /api/onestroke/submit` (提交画作，调用千问大模型裁判，计算得分)
-  - [ ] 实现 `GET /api/onestroke/rankings` (一笔画段位榜)
-- [ ] **前端开发**
-  - [ ] 游戏大厅添加入口，支持单人直接进入
-  - [ ] 开发一笔画挑战 UI (展示题目图片，限制一笔画笔逻辑)
-  - [ ] 接入大模型裁判反馈动效 (答对/答错)
-  - [ ] 开发一笔画段位排行榜页面
+- [x] **数据库与存储**
+  - [x] 创建一笔画题目表 (存储图片URL、答案名称)
+  - [x] 创建一笔画积分表/记录表 (存储玩家挑战记录)
+  - [x] 上传题目图片至 Supabase Storage
+- [x] **后端 API**
+  - [x] 实现 `GET /api/onestroke/question` (获取随机题目)
+  - [x] 实现 `POST /api/onestroke/submit` (提交画作，调用千问大模型裁判，计算得分)
+  - [x] 实现 `GET /api/onestroke/rankings` (一笔画段位榜)
+- [x] **前端开发**
+  - [x] 游戏大厅添加入口，支持单人直接进入
+  - [x] 开发一笔画挑战 UI (展示题目图片，限制一笔画笔逻辑)
+  - [x] 接入大模型裁判反馈动效 (答对/答错)
+  - [x] 开发一笔画段位排行榜页面 (青铜, 白银, 黄金, 钻石, 大师)
 
 ## 10. 测试与优化 (Testing & Optimization)
 
@@ -107,4 +107,35 @@
   - [x] 移动端适配 (Responsive Design)
   - [x] AI 响应速度优化
   - [x] 部署上线
+
+## 11. 扩展功能 - 好友添加与组队功能 (Friends & Teams)
+
+- [x] **需求**
+  - 单向申请、双向确认的好友关系，搜索用户并发送申请
+  - 组队创建、邀请好友、接受拒绝逻辑、队伍上限限制
+  - 队长转移、队伍解散（敏感操作需二次确认）
+  - 实时状态同步（Supabase Realtime）
+  - 性能基准达标：支持大数据量加载与并发邀请
+  - **房间内邀请好友进入对局**
+  - **好友之间实时发送消息聊天**
+  - **支持删除好友（双向解除关系）**
+- [x] **表结构**
+  - `friends`: `id`, `requester_id`, `addressee_id`, `status`
+  - `teams`: `id`, `leader_id`, `name`, `status`, `max_members`
+  - `team_members`: `id`, `team_id`, `user_id`, `status`
+  - `messages`: `id`, `sender_id`, `receiver_id`, `content`, `type`, `room_code`, `is_read`
+- [x] **接口清单 (Service & RPC)**
+  - `friendService`: `sendRequest`, `acceptRequest`, `rejectRequest`, `getFriends`, `getPendingRequests`, `deleteFriend`
+  - `teamService`: `createTeam`, `inviteToTeam`, `acceptInvite`, `rejectInvite`, `transferLeader`, `disbandTeam`
+  - `messageService`: `sendMessage`, `sendRoomInvite`, `getMessages`, `getUnreadCounts`
+  - RPCs: `accept_friend_request`, `transfer_team_leader`, `disband_team`, `accept_team_invite`
+- [x] **测试报告**
+  - `friendService.test.ts`: 覆盖发送申请、同意、拒绝、删除好友等核心流程
+  - `teamService.test.ts`: 覆盖创建、转让、解散等核心流程
+  - 验证了 RLS 策略对越权操作的拦截（集成测试中通过 Supabase 权限校验完成）
+- [x] **部署步骤**
+  - 1. 执行数据库迁移脚本 `20240321_friends_and_teams.sql` 和 `20240322_messages.sql`（已在生产数据库应用）。
+  - 2. 更新前端代码，确保 `FriendsAndTeams.vue` 和 `RoomView.vue` 正确挂载新功能。
+  - 3. 验证 Supabase Realtime 对于 `friends`、`teams`、`team_members`、`messages` 表的 publication 是否开启。
+  - 4. 前端应用重打包发布。
 

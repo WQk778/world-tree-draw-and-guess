@@ -13,9 +13,35 @@ const openai = new OpenAI({
 
 const getQuestion = async (req, res) => {
     try {
-        // Fetch a random question
-        // Since random() isn't natively supported in JS client simple queries easily without RPC,
-        // we fetch all and pick one for simplicity (assuming small dataset)
+        const userId = req.user.id;
+
+        // 1. Check if the user already has a matched question that is not completed
+        // IMPORTANT: Also check if this question still exists in the questions table!
+        const { data: existingMatch, error: matchError } = await supabaseAdmin
+            .from('onestroke_match_records')
+            .select(`
+                id,
+                question_id,
+                onestroke_questions (*)
+            `)
+            .eq('user_id', userId)
+            .eq('status', 'matched')
+            .order('matched_at', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (existingMatch && existingMatch.onestroke_questions) {
+            // User already has an active question that still exists, return it
+            return res.json({ question: existingMatch.onestroke_questions });
+        } else if (existingMatch && !existingMatch.onestroke_questions) {
+             // The question was deleted from DB but match record remains. Mark it invalid.
+             await supabaseAdmin
+                .from('onestroke_match_records')
+                .update({ status: 'invalidated' })
+                .eq('id', existingMatch.id);
+        }
+
+        // 2. If no active question, fetch all and pick a random one
         const { data: questions, error } = await supabaseAdmin
             .from('onestroke_questions')
             .select('*');
@@ -27,6 +53,15 @@ const getQuestion = async (req, res) => {
 
         const randomQ = questions[Math.floor(Math.random() * questions.length)];
         
+        // 3. Save this match so if they refresh, they get the same question
+        await supabaseAdmin
+            .from('onestroke_match_records')
+            .insert({
+                user_id: userId,
+                question_id: randomQ.id,
+                status: 'matched'
+            });
+
         res.json({ question: randomQ });
     } catch (error) {
         console.error('Error fetching question:', error);
@@ -146,6 +181,14 @@ const submitDrawing = async (req, res) => {
             console.error('Failed to save record:', recordError);
         }
 
+        // 5. Update Match Record status to completed
+        await supabaseAdmin
+            .from('onestroke_match_records')
+            .update({ status: 'completed' })
+            .eq('user_id', userId)
+            .eq('question_id', questionId)
+            .eq('status', 'matched');
+
         res.json({
             isCorrect,
             aiMessage: isCorrect ? '答对啦！' : '答案错误，继续加油！',
@@ -168,7 +211,7 @@ const getRankings = async (req, res) => {
                 total_score,
                 correct_count,
                 user_id,
-                profiles:user_id (nickname, avatar_url)
+                profiles!onestroke_profiles_user_id_fkey_profiles (nickname, avatar_url)
             `)
             .order('total_score', { ascending: false })
             .limit(50);
@@ -178,7 +221,7 @@ const getRankings = async (req, res) => {
         res.json({ rankings });
     } catch (error) {
         console.error('Error fetching rankings:', error);
-        res.status(500).json({ error: 'Failed to fetch rankings' });
+        res.status(500).json({ error: 'Failed to fetch rankings', details: error.message });
     }
 };
 

@@ -4,12 +4,15 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../stores/user'
 import { supabase } from '../lib/supabase'
 
+import FriendsAndTeams from '../components/FriendsAndTeams.vue'
+
 const router = useRouter()
 const userStore = useUserStore()
 
 const joinCode = ref('')
 const errorMsg = ref('')
 const loading = ref(false)
+const showFriends = ref(false)
 
 const fetchWithTimeout = async (url, options = {}) => {
     const { timeout = 5000 } = options;
@@ -114,9 +117,12 @@ const logout = async () => {
 
     <nav class="relative z-10 bg-white/90 backdrop-blur-sm border-b-4 border-black px-6 py-4 flex justify-between items-center shadow-[0_4px_0px_0px_rgba(0,0,0,1)] sticky top-0">
       <div class="flex items-center">
-        <h1 class="text-3xl font-black text-green-800 tracking-tight drop-shadow-md">� 世界树你画我猜</h1>
+        <h1 class="text-3xl font-black text-green-800 tracking-tight drop-shadow-md">世界树你画我猜</h1>
       </div>
       <div class="flex items-center space-x-6">
+        <button @click="showFriends = true" class="px-4 py-2 bg-yellow-300 border-2 border-black rounded-lg font-black hover:translate-y-1 transition-transform">
+          👫 好友与组队
+        </button>
         <button @click="router.push('/rankings')" class="px-4 py-2 bg-blue-300 border-2 border-black rounded-lg font-black hover:translate-y-1 transition-transform">
           🏆 排行榜
         </button>
@@ -168,7 +174,7 @@ const logout = async () => {
               type="text" 
               maxlength="6"
               placeholder="输入 6 位房间码"
-              class="text-center text-3xl font-black tracking-[0.5em] block w-full px-4 py-4 border-4 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-0 focus:border-black focus:bg-white bg-gray-50 uppercase"
+              class="text-center text-2xl font-black tracking-widest block w-full px-4 py-4 border-4 border-black rounded-xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-0 focus:border-black focus:bg-white bg-gray-50 uppercase"
             />
             <button 
               @click="joinRoom"
@@ -204,5 +210,7 @@ const logout = async () => {
         <p class="text-lg font-black text-black text-center">⚠️ {{ errorMsg }}</p>
       </div>
     </main>
+
+    <FriendsAndTeams :isOpen="showFriends" @close="showFriends = false" />
   </div>
 </template>
